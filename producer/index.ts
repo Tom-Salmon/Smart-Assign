@@ -35,25 +35,3 @@ async function sendPizzaNotification() {
     }
 }
 sendPizzaNotification().catch(console.error);
-/*
-    setInterval(async () => {
-        const message = {
-            key: uuidv4(),
-            value: JSON.stringify({
-                orderId: uuidv4(),
-                status: "ready",
-                timestamp: new Date().toISOString(),
-            }),
-        };
-
-        try {
-            await producer.send({
-                topic: "pizza-orders",
-                messages: [message],
-            });
-            console.log("Message sent:", message);
-        } catch (error) {
-            console.error("Error sending message:", error);
-        }
-    }, 5000);
-}*/
