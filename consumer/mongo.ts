@@ -1,12 +1,16 @@
 import mongoose from "mongoose";
 
-
 async function connectToMongoDB() {
-    try {
-        await mongoose.connect("mongodb://localhost:27017/pizza-orders");
-        console.log("Connected to MongoDB");
-    } catch (error) {
-        console.error("Error connecting to MongoDB:", error);
+    if (mongoose.connection.readyState) {
+        console.log("Already connected to MongoDB");
+        return;
+    } else {
+        try {
+            await mongoose.connect("mongodb://localhost:27017/pizza-orders");
+            console.log("Connected to MongoDB");
+        } catch (error) {
+            console.error("Error connecting to MongoDB:", error);
+        }
     }
 }
 
@@ -22,4 +26,4 @@ const orderSchema = new mongoose.Schema({
 const Order = mongoose.model("Order", orderSchema);
 
 
-export { connectToMongoDB, Order };
+export { connectToMongoDB, Order };    
