@@ -3,7 +3,7 @@ import { createClient, RedisClientType } from 'redis';
 
 
 let redisClient: RedisClientType;
-export const getRedisClient = async (): Promise<RedisClientType> => {
+const getRedisClient = async (): Promise<RedisClientType> => {
     if (!redisClient || !redisClient.isOpen) {
         redisClient = createClient({
             url: 'redis://localhost:6379',
@@ -14,3 +14,12 @@ export const getRedisClient = async (): Promise<RedisClientType> => {
     }
     return redisClient;
 }
+
+const disconnectRedisClient = async (): Promise<void> => {
+    if (redisClient && redisClient.isOpen) {
+        await redisClient.quit();
+        console.log('Disconnected from Redis');
+    }
+}
+
+export { getRedisClient, disconnectRedisClient };

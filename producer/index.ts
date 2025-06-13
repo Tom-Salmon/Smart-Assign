@@ -1,5 +1,6 @@
 import { Kafka } from "kafkajs";
 import { v4 as uuidv4 } from "uuid";
+import { OrderType } from "../common/order.interface";
 
 const kafka = new Kafka({
     clientId: "pizza-notifier",
@@ -11,7 +12,7 @@ async function sendPizzaNotification() {
     await producer.connect();
     console.log("Producer connected");
 
-    const order = {
+    const order: OrderType = {
         orderId: uuidv4(),
         customerName: "Tom Salmon",
         restaurantName: "Domino's Pizza",

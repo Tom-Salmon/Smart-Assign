@@ -1,5 +1,6 @@
 import { Kafka } from "kafkajs";
 import { connectToMongoDB, Order } from "./mongo";
+import { OrderType } from "../common/order.interface";
 
 const consumer = new Kafka({
     clientId: "pizza-notifier",
@@ -20,7 +21,7 @@ const kafkaConsumer = consumer.consumer({ groupId: "pizza-orders-group" });
                     console.error("Received message with no value");
                 } else {
                     try {
-                        const order = JSON.parse(message.value.toString());
+                        const order: OrderType = JSON.parse(message.value.toString());
                         await Order.create(order);
                         console.log("Order saved to MongoDB:", order);
                     } catch (error) {
