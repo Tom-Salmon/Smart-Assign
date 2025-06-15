@@ -59,4 +59,41 @@ const updateOrder = async (orderId: string, updatedData: Partial<OrderType>): Pr
         return null;
     }
 };
-export { getOrderById, saveOrder, updateOrder };
+
+const deleteOrder = async (orderId: string): Promise<void> => {
+    const redisClient = await getRedisClient();
+    try {
+        await Order.deleteOne({ orderId });
+        console.log("Order deleted from MongoDB:", orderId);
+        await redisClient.del(orderId);
+        console.log("Order deleted from Redis cache:", orderId);
+    } catch (error) {
+        console.error("Error deleting order:", error);
+    }
+};
+
+const getAllOrders = async (): Promise<OrderType[]> => {
+    const redisClient = await getRedisClient();
+    try {
+        const redisOrders: OrderType[] = [];
+        const redisKeys: string[] = [];
+        for await (const key of redisClient.scanIterator()) {
+            redisKeys.push(key);
+        }
+        const redisValues = await Promise.all(redisKeys.map(key => redisClient.get(key)));
+        for (const value of redisValues) {
+            if (value) {
+                redisOrders.push(JSON.parse(value) as OrderType);
+            }
+        }
+        const allMongoOrders = await Order.find().lean();
+        const redisOrdersIds = new Set(redisOrders.map(order => order.orderId));
+        const mongoOrders = allMongoOrders.filter(order => typeof order.orderId === "string" && !redisOrdersIds.has(order.orderId));
+        return [...redisOrders, ...mongoOrders] as OrderType[];
+    } catch (error) {
+        console.error("Error retrieving all orders:", error);
+        return [];
+    }
+}
+
+export { getOrderById, saveOrder, updateOrder, deleteOrder };
