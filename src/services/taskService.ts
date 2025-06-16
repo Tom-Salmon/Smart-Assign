@@ -78,6 +78,7 @@ const getAllOrders = async (): Promise<OrderType[]> => {
         const redisOrders: OrderType[] = [];
         const redisKeys: string[] = [];
         for await (const key of redisClient.scanIterator()) {
+            if (typeof key !== "string") continue;
             redisKeys.push(key);
         }
         const redisValues = await Promise.all(redisKeys.map(key => redisClient.get(key)));
@@ -96,4 +97,4 @@ const getAllOrders = async (): Promise<OrderType[]> => {
     }
 }
 
-export { getOrderById, saveOrder, updateOrder, deleteOrder };
+export { getOrderById, saveOrder, updateOrder, deleteOrder, getAllOrders };
