@@ -1,5 +1,5 @@
 import { getRedisClient } from "./redisClient";
-import { Order } from "./mongoClient";
+import { Order } from "./mongo";
 import { OrderType } from "../common/order.interface";
 
 const getOrderById = async (orderId: string): Promise<OrderType | null> => {
