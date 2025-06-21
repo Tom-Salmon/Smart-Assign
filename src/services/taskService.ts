@@ -1,4 +1,4 @@
-import { getRedisClient } from "./redisClient";
+/*import { getRedisClient } from "./redisClient";
 import { Order } from "./mongo";
 import { OrderType } from "../common/order.interface";
 
@@ -97,4 +97,4 @@ const getAllOrders = async (): Promise<OrderType[]> => {
     }
 }
 
-export { getOrderById, saveOrder, updateOrder, deleteOrder, getAllOrders };
+export { getOrderById, saveOrder, updateOrder, deleteOrder, getAllOrders };*/

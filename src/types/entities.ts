@@ -1,17 +1,16 @@
 export interface Task {
-    id: string;
     title: string;
     priority: number;
     createdDate: Date;
-    dueDate: Date;
+    timeToComplete: Date;
     requiredSkills: string[];
     description: string;
     status: 'todo' | 'in-progress' | 'done';
-    load: number; // Estimated load in hours
+    load: number;
 }
 export interface Assignment {
-    taskId: string; // Task ID
-    workerId: string; // User ID
+    taskId: string;
+    workerId: string;
     assignedDate: Date;
 }
 
@@ -21,6 +20,6 @@ export interface Worker {
     skills: string[];
     currentLoad: number;
     maxLoad: number;
-    assignedTasks: string[]; // Array of Task IDs
+    assignedTasks: string[];
     bio: string;
 }

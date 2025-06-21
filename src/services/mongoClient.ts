@@ -28,7 +28,7 @@ const taskSchema = new mongoose.Schema(
         title: String,
         priority: Number,
         createdDate: Date,
-        dueDate: Date,
+        timeToComplete: Date,
         requiredSkills: [String],
         description: String,
         status: {
