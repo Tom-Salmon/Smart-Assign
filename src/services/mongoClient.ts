@@ -43,6 +43,7 @@ const taskSchema = new mongoose.Schema(
 
 const workerSchema = new mongoose.Schema(
     {
+        id: String,
         name: String,
         skills: [String],
         currentLoad: Number,
