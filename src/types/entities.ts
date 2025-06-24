@@ -2,16 +2,13 @@ export interface Task {
     title: string;
     priority: number;
     createdDate: Date;
-    timeToComplete: Date;
+    timeToComplete: number;
     requiredSkills: string[];
     description: string;
     status: 'todo' | 'in-progress' | 'done';
     load: number;
-}
-export interface Assignment {
-    taskId: string;
-    workerId: string;
-    assignedDate: Date;
+    assignedTo?: string;
+    assignedDate?: Date;
 }
 
 export interface Worker {

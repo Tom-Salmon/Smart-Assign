@@ -28,7 +28,7 @@ const taskSchema = new mongoose.Schema(
         title: String,
         priority: Number,
         createdDate: Date,
-        timeToComplete: Date,
+        timeToComplete: Number,
         requiredSkills: [String],
         description: String,
         status: {
@@ -37,6 +37,8 @@ const taskSchema = new mongoose.Schema(
             default: 'todo',
         },
         load: Number,
+        assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker' },
+        assignedDate: Date,
     },
     { timestamps: true }
 );
@@ -54,28 +56,7 @@ const workerSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-const assignmentSchema = new mongoose.Schema(
-    {
-        taskId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Task',
-            required: true,
-        },
-        workerId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Worker',
-            required: true,
-        },
-        assignedDate: {
-            type: Date,
-            default: Date.now,
-        },
-    },
-    { timestamps: true }
-);
-
 const TaskModel = mongoose.model('Task', taskSchema);
 const WorkerModel = mongoose.model('Worker', workerSchema);
-const AssignmentModel = mongoose.model('Assignment', assignmentSchema);
 
-export { TaskModel, WorkerModel, AssignmentModel };
+export { TaskModel, WorkerModel };

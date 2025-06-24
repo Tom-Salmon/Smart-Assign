@@ -1,6 +1,6 @@
 import { REDIS_CACHE_TTL } from '../config';
-import { TaskModel, WorkerModel, AssignmentModel } from '../services/mongoClient';
-import { Task, Worker, Assignment } from '../types/entities';
+import { TaskModel, WorkerModel } from '../services/mongoClient';
+import { Task, Worker } from '../types/entities';
 import { getRedisClient } from './redisClient';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,7 +16,14 @@ export async function handleNewTask(taskData: Task): Promise<void> {
 }
 
 export async function deleteTask(taskId: string) {
-
+    try {
+        const redisClient = await getRedisClient();
+        await redisClient.del(`task:${taskId}`);
+        await TaskModel.deleteOne({ _id: taskId });
+        console.log(`task ID: ${taskId} removed succesfully from Redis and MongoDB.`);
+    } catch (error) {
+        console.error(`Failed to remove ${taskId}:`, error);
+    }
 }
 
 export async function getAllTasks(): Promise<Task[]> {
