@@ -5,7 +5,6 @@ import { EachMessagePayload } from "kafkajs";
 export async function initTopicRouter() {
     await consumer.subscribe({ topic: `NEW_TASK`, fromBeginning: false });
     await consumer.subscribe({ topic: `WORKER_STATUS_UPDATE`, fromBeginning: false });
-    await consumer.subscribe({ topic: `TASK_ASSIGN`, fromBeginning: false });
 
     await consumer.run({
         eachMessage: async ({ topic, message }: EachMessagePayload) => {
@@ -25,10 +24,6 @@ export async function initTopicRouter() {
                     case "WORKER_STATUS_UPDATE":
                         // Handle worker status update event
                         console.log("Worker Status Update Event Received:", event.payload);
-                        break;
-                    case "TASK_ASSIGN":
-                        // Handle task assignment event
-                        console.log("Task Assign Event Received:", event.payload);
                         break;
                     default:
                         console.error("Unknown event type:", (event as any).type);

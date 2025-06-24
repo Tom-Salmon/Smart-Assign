@@ -37,7 +37,7 @@ const taskSchema = new mongoose.Schema(
             default: 'todo',
         },
         load: Number,
-        assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker' },
+        assignedTo: String,
         assignedDate: Date,
     },
     { timestamps: true }

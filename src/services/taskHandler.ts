@@ -3,6 +3,8 @@ import { TaskModel, WorkerModel } from '../services/mongoClient';
 import { Task, Worker } from '../types/entities';
 import { getRedisClient } from './redisClient';
 import { v4 as uuidv4 } from 'uuid';
+import { updateWorker, getWorkerById } from './workerHandler';
+import { set } from 'mongoose';
 
 export async function handleNewTask(taskData: Task): Promise<void> {
     const redisClient = await getRedisClient();
@@ -82,5 +84,119 @@ export async function updateTask(taskId: string, updatedData: Partial<Task>): Pr
     } catch (error) {
         console.error('Error updating task:', error);
         return null;
+    }
+}
+
+export async function finishTask(taskId: string): Promise<void> {
+    if (!taskId) {
+        console.error('Invalid task ID for finishing:', taskId);
+        return;
+    }
+    try {
+        const task = await getTaskById(taskId);
+        if (!task) {
+            console.log('Task not found for finishing:', taskId);
+            return;
+        }
+        await updateTask(taskId, { status: 'done', assignedTo: undefined, assignedDate: undefined });
+        let worker: Worker | null = null;
+        if (task.assignedTo) {
+            worker = await getWorkerById(task.assignedTo);
+        }
+        if (worker) {
+            await updateWorker(worker.id, {
+                currentLoad: worker.currentLoad - task.load,
+                assignedTasks: worker.assignedTasks.filter((id) => id !== taskId) ?? [],
+            });
+        }
+        console.log('Task finished:', taskId);
+    } catch (error) {
+        console.error('Error finishing task:', error);
+    }
+}
+
+export async function assignTaskToWorker(taskId: string, workerId: string): Promise<void> {
+    if (!taskId || !workerId) {
+        console.error('Invalid task ID or worker ID for assignment:', taskId, workerId);
+        return;
+    }
+    try {
+        const task = await getTaskById(taskId);
+        if (!task) {
+            console.log('Task not found for assignment:', taskId);
+            return;
+        }
+        if (task.status !== 'todo') {
+            console.log('Task is not in todo status for assignment:', taskId);
+            return;
+        }
+        const worker = await getWorkerById(workerId);
+        if (!worker) {
+            console.log('Worker not found for assignment:', workerId);
+            return;
+        }
+        if (worker.currentLoad + task.load > worker.maxLoad) {
+            console.log(`${worker.name} load exceeded for assignment "${task.title}"`);
+            return;
+        }
+        const hasRequiredSkills = task.requiredSkills.every(skill => worker.skills.includes(skill));
+        if (!hasRequiredSkills) {
+            console.log(`${worker.name} does not have required skills for task ${taskId}`);
+            return;
+        }
+        await updateTask(taskId, {
+            assignedTo: worker.id,
+            assignedDate: new Date(),
+            status: 'in-progress'
+        });
+        await updateWorker(worker.id, {
+            currentLoad: worker.currentLoad + task.load,
+            assignedTasks: [...worker.assignedTasks, taskId],
+        });
+        console.log('Task assigned to worker:', worker.name);
+    } catch (error) {
+        console.error('Error assigning task to worker:', error);
+    }
+}
+export async function unassignTaskFromWorker(taskId: string): Promise<void> {
+    if (!taskId) {
+        console.error('Invalid task ID for unassignment:', taskId);
+        return;
+    }
+    try {
+        const task = await getTaskById(taskId);
+        if (!task) {
+            console.log('Task not found for unassignment:', taskId);
+            return;
+        }
+        if (task.status !== 'in-progress') {
+            console.log('Task is not in-progress for unassignment:', taskId);
+            return;
+        }
+        if (!task.assignedTo) {
+            console.log('Task is not assigned to any worker:', taskId);
+            return;
+        }
+        const worker = await getWorkerById(task.assignedTo);
+        if (!worker) {
+            console.log('Worker not found for unassignment:', task.assignedTo);
+            return;
+        }
+        const assignedTime = new Date(task.assignedDate ?? 0).getTime();
+        const elapsedSeconds = (Date.now() - assignedTime) / 1000;
+        const updatedTimeToComplete = Math.max(task.timeToComplete - elapsedSeconds, 0);
+        await updateTask(taskId, {
+            assignedTo: undefined,
+            assignedDate: undefined,
+            status: 'todo',
+            timeToComplete: updatedTimeToComplete,
+        });
+        await updateWorker(worker.id, {
+            currentLoad: worker.currentLoad - task.load,
+            assignedTasks: worker.assignedTasks.filter((id) => id !== taskId),
+        });
+        console.log('Task unassigned from worker:', worker.name);
+    } catch (error) {
+        console.error('Error unassigning task from worker:', error);
     }
 }
