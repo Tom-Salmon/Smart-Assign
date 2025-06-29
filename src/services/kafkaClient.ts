@@ -1,12 +1,9 @@
 import { Kafka } from "kafkajs";
 import { KAFKA_BROKER, KAFKA_CLIENT_ID } from "../config";
-import { v4 as uuidv4 } from "uuid";
-import { KafkaEvent } from "../types/kafkaEvents";
-import { subscribe } from "diagnostics_channel";
 
 const kafka = new Kafka({
-    clientId: KAFKA_CLIENT_ID,
-    brokers: [KAFKA_BROKER]
+    clientId: 'smartassign-core',
+    brokers: ['host.docker.internal:9092']
 });
 export const producer = kafka.producer();
 

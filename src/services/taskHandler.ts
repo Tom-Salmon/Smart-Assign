@@ -2,14 +2,12 @@ import { REDIS_CACHE_TTL } from '../config';
 import { TaskModel, WorkerModel } from '../services/mongoClient';
 import { Task, Worker } from '../types/entities';
 import { getRedisClient } from './redisClient';
-import { v4 as uuidv4 } from 'uuid';
 import { updateWorker, getWorkerById } from './workerHandler';
-import { set } from 'mongoose';
 
 export async function handleNewTask(taskData: Task): Promise<void> {
     const redisClient = await getRedisClient();
     try {
-        const newTask = await TaskModel.create({ _id: uuidv4(), ...taskData });
+        const newTask = await TaskModel.create({ taskData });
         await redisClient.set(`task:${newTask._id}`, JSON.stringify({ ...taskData, id: newTask._id.toString() }), { EX: REDIS_CACHE_TTL });
         console.log('Task saved to MongoDB and Redis:', newTask._id);
     } catch (error) {

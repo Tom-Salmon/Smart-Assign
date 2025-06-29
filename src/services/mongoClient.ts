@@ -25,6 +25,7 @@ export async function disconnectMongo() {
 
 const taskSchema = new mongoose.Schema(
     {
+        id: String,
         title: String,
         priority: Number,
         createdDate: Date,
