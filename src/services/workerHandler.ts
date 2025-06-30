@@ -61,6 +61,21 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
     return null;
 }
 
+export async function deleteWorker(workerId: string): Promise<void> {
+    if (!workerId) {
+        console.error('Invalid worker ID for deletion:', workerId);
+        return;
+    }
+    try {
+        await WorkerModel.deleteOne({ _id: workerId });
+        const redisClient = await getRedisClient();
+        await redisClient.del(`worker:${workerId}`);
+        console.log('Worker deleted from MongoDB and Redis:', workerId);
+    } catch (error) {
+        console.error('Error deleting worker:', error);
+    }
+}
+
 export async function updateWorker(workerId: string, updatedData: Partial<Worker>): Promise<Worker | null> {
     if (!workerId) {
         console.error('Invalid worker ID for update:', workerId);
