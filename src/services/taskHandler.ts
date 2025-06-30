@@ -62,6 +62,7 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     return null;
 }
 
+//change updateTask to recieve a task instead of taskId.
 export async function updateTask(taskId: string, updatedData: Partial<Task>): Promise<Task | null> {
     if (!taskId) {
         console.error('Invalid task ID for update:', taskId);
@@ -96,7 +97,7 @@ export async function finishTask(taskId: string): Promise<void> {
             console.log('Task not found for finishing:', taskId);
             return;
         }
-        await updateTask(taskId, { status: 'done', assignedTo: undefined, assignedDate: undefined });
+        await updateTask(taskId, { status: 'done', assignedTo: undefined, assignedDate: undefined });//change updateTask to recieve a task instead of taskId.
         let worker: Worker | null = null;
         if (task.assignedTo) {
             worker = await getWorkerById(task.assignedTo);
@@ -135,12 +136,12 @@ export async function assignTaskToWorker(taskId: string, workerId: string): Prom
         }
         if (worker.currentLoad + task.load > worker.maxLoad) {
             console.log(`${worker.name} load exceeded for assignment "${task.title}"`);
-            return;
+            throw new Error(`${worker.name} load exceeded for assignment "${task.title}"`);
         }
         const hasRequiredSkills = task.requiredSkills.every(skill => worker.skills.includes(skill));
         if (!hasRequiredSkills) {
             console.log(`${worker.name} does not have required skills for task ${taskId}`);
-            return;
+            throw new Error(`${worker.name} does not have required skills for task ${taskId}`);
         }
         await updateTask(taskId, {
             assignedTo: worker.id,
@@ -156,6 +157,7 @@ export async function assignTaskToWorker(taskId: string, workerId: string): Prom
         console.error('Error assigning task to worker:', error);
     }
 }
+
 export async function unassignTaskFromWorker(taskId: string): Promise<void> {
     if (!taskId) {
         console.error('Invalid task ID for unassignment:', taskId);
@@ -165,7 +167,7 @@ export async function unassignTaskFromWorker(taskId: string): Promise<void> {
         const task = await getTaskById(taskId);
         if (!task) {
             console.log('Task not found for unassignment:', taskId);
-            return;
+            throw new Error(`Task with ID ${taskId} not found`);
         }
         if (task.status !== 'in-progress') {
             console.log('Task is not in-progress for unassignment:', taskId);
@@ -178,7 +180,7 @@ export async function unassignTaskFromWorker(taskId: string): Promise<void> {
         const worker = await getWorkerById(task.assignedTo);
         if (!worker) {
             console.log('Worker not found for unassignment:', task.assignedTo);
-            return;
+            throw new Error(`Worker with ID ${task.assignedTo} not found`);
         }
         const assignedTime = new Date(task.assignedDate ?? 0).getTime();
         const elapsedSeconds = (Date.now() - assignedTime) / 1000;
