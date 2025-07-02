@@ -1,38 +1,51 @@
 import { Kafka } from "kafkajs";
-import { KAFKA_BROKER, KAFKA_CLIENT_ID } from "../config";
+import { KAFKA_CLIENT_ID } from "../config";
+import { logger } from "./logger";
+
+// This module provides a Kafka client for connecting to a Kafka server.
+// It exports functions to initialize a Kafka producer and consumer, and to disconnect them when needed.
+
 
 const kafka = new Kafka({
-    clientId: 'smartassign-core',
+    clientId: KAFKA_CLIENT_ID,
     brokers: ['host.docker.internal:9092']
 });
-export const producer = kafka.producer();
+const producer = kafka.producer();
 
-export async function initKafkaProducer() {
+async function initKafkaProducer() {
     try {
         await producer.connect();
-        console.log("Kafka producer connected");
+        logger.info("Kafka producer connected");
     } catch (error) {
-        console.error("Error connecting Kafka producer:", error);
+        logger.error("Error connecting Kafka producer:", error);
     }
 }
 
-export const consumer = kafka.consumer({ groupId: `${KAFKA_CLIENT_ID}-group` });
+const consumer = kafka.consumer({ groupId: `${KAFKA_CLIENT_ID}-group` });
 
-export async function initKafkaConsumer() {
+async function initKafkaConsumer() {
     try {
         await consumer.connect();
-        console.log("Kafka consumer connected");
+        logger.info("Kafka consumer connected");
     } catch (error) {
-        console.error("Error connecting Kafka consumer:", error);
+        logger.error("Error connecting Kafka consumer:", error);
     }
 }
 
-export async function disconnectKafka() {
+async function disconnectKafka() {
     try {
         await producer.disconnect();
         await consumer.disconnect();
-        console.log("Kafka producer and consumer disconnected");
+        logger.info("Kafka producer and consumer disconnected");
     } catch (error) {
-        console.error("Error disconnecting Kafka producer and consumer:", error);
+        logger.error("Error disconnecting Kafka producer and consumer:", error);
     }
 }
+
+export {
+    initKafkaProducer,
+    initKafkaConsumer,
+    disconnectKafka,
+    producer,
+    consumer
+};

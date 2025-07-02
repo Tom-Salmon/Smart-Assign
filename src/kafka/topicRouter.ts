@@ -1,43 +1,48 @@
 import { consumer } from "../services/kafkaClient";
-import { KafkaEvent } from "../types/kafkaEvents";
+import { KafkaEvent } from "./kafkaEvents";
 import { EachMessagePayload } from "kafkajs";
 import { handleNewTask } from "../services/taskHandler";
 import { handleNewWorker } from "../services/workerHandler";
+import { logger } from "../services/logger";
 
-export async function initTopicRouter() {
+// This module initializes the Kafka consumer and subscribes to specific topics.
+// It listens for messages and processes them based on their type, handling new tasks and workers.
+
+async function initTopicRouter() {
     await consumer.subscribe({ topic: `NEW_TASK`, fromBeginning: false });
     await consumer.subscribe({ topic: `NEW_WORKER`, fromBeginning: false });
 
     await consumer.run({
         eachMessage: async ({ topic, message }: EachMessagePayload) => {
             if (!message.value) {
-                console.error("Received message with no value");
+                logger.error("Received message with no value");
                 return;
             }
 
             try {
-                console.log(`Received message from topic ${topic} at offset ${message.offset}`);
+                logger.info(`Received message from topic ${topic} at offset ${message.offset}`);
                 const rawMessage = message.value.toString();
                 const event: KafkaEvent = JSON.parse(rawMessage);
-                console.log("Parsed event:", event);
+                logger.info("Parsed event:", event);
 
                 switch (event.type) {
                     case "NEW_TASK":
                         await handleNewTask(event.payload);
-                        console.log("Handled new task:", event.payload);
+                        logger.info("Handled new task:", event.payload);
                         break;
                     case "NEW_WORKER":
                         await handleNewWorker(event.payload);
-                        console.log("Handled new worker:", event.payload);
+                        logger.info("Handled new worker:", event.payload);
                         break;
                     default:
-                        console.error("Unknown event type:", (event as any).type);
+                        logger.error("Unknown event type:", (event as any).type);
                 }
             } catch (error) {
-                console.error("Error processing message:", error);
+                logger.error("Error processing message:", error);
             }
         }
     });
 
-    console.log("Topic router initialized and listening for events");
+    logger.info("Topic router initialized and listening for events");
 }
+export { initTopicRouter };

@@ -1,41 +1,44 @@
-import { WorkerModel } from './mongoClient';
+import { WorkerModel } from '../models/mongoClient';
 import { getRedisClient } from './redisClient';
 import { REDIS_CACHE_TTL } from '../config';
 import { Worker } from '../types/entities';
+import { logger } from './logger';
 
-export async function handleNewWorker(workerData: Worker): Promise<void> {
+// This module handles worker management operations such as creating, updating, deleting, and fetching workers.
+// It interacts with MongoDB for persistent storage and Redis for caching.
+
+async function handleNewWorker(workerData: Worker): Promise<void> {
     const redisClient = await getRedisClient();
     try {
         const newWorker = await WorkerModel.create({ workerData });
         await redisClient.set(`worker:${newWorker._id}`, JSON.stringify({ ...workerData, id: newWorker._id.toString() }), { EX: REDIS_CACHE_TTL });
-        console.log('Worker saved to MongoDB and Redis:', newWorker._id);
+        logger.info('Worker saved to MongoDB and Redis:', newWorker._id);
     } catch (error) {
-        console.error('Error creating new worker:', error);
+        logger.error('Error creating new worker:', error);
     }
 };
 
-
-export async function getAllWorkers(): Promise<Worker[]> {
+async function getAllWorkers(): Promise<Worker[]> {
     try {
         const docs = await WorkerModel.find({}).lean();
         return docs.map((doc: any) => ({ ...doc, id: doc._id.toString() })) as Worker[];
     }
     catch (error) {
-        console.error('Error fetching workers:', error);
+        logger.error('Error fetching workers:', error);
         return [];
     }
 }
 
-export async function getWorkerById(id: string): Promise<Worker | null> {
+async function getWorkerById(id: string): Promise<Worker | null> {
     if (!id) {
-        console.error('Invalid worker ID:', id);
+        logger.error('Invalid worker ID:', id);
         return null;
     }
     try {
         const redisClient = await getRedisClient();
         const requiredWorker = await redisClient.get(`worker:${id}`);
         if (requiredWorker) {
-            console.log('Worker fetched from Redis:', id);
+            logger.info('Worker fetched from Redis:', id);
             return JSON.parse(requiredWorker) as Worker;
         }
 
@@ -51,50 +54,58 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
                 bio: worker.bio ?? ""
             };
             await redisClient.set(`worker:${id}`, JSON.stringify(formattedWorker), { EX: REDIS_CACHE_TTL });
-            console.log('Worker fetched from MongoDB and stored in Redis:', id);
+            logger.info('Worker fetched from MongoDB and stored in Redis:', id);
             return formattedWorker;
         }
 
     } catch (error) {
-        console.error('Error fetching worker by ID:', error);
+        logger.error('Error fetching worker by ID:', error);
     }
     return null;
 }
 
-export async function deleteWorker(workerId: string): Promise<void> {
+async function deleteWorker(workerId: string): Promise<void> {
     if (!workerId) {
-        console.error('Invalid worker ID for deletion:', workerId);
+        logger.error('Invalid worker ID for deletion:', workerId);
         return;
     }
     try {
         await WorkerModel.deleteOne({ _id: workerId });
         const redisClient = await getRedisClient();
         await redisClient.del(`worker:${workerId}`);
-        console.log('Worker deleted from MongoDB and Redis:', workerId);
+        logger.info('Worker deleted from MongoDB and Redis:', workerId);
     } catch (error) {
-        console.error('Error deleting worker:', error);
+        logger.error('Error deleting worker:', error);
     }
 }
 
-export async function updateWorker(workerId: string, updatedData: Partial<Worker>): Promise<Worker | null> {
+async function updateWorker(workerId: string, updatedData: Partial<Worker>): Promise<Worker | null> {
     if (!workerId) {
-        console.error('Invalid worker ID for update:', workerId);
+        logger.error('Invalid worker ID for update:', workerId);
         return null;
     }
     try {
         const existingWorker = await getWorkerById(workerId);
         if (!existingWorker) {
-            console.log('Worker not found for update:', workerId);
+            logger.warn('Worker not found for update:', workerId);
             return null;
         }
         const updatedWorker = { ...existingWorker, ...updatedData };
         await WorkerModel.updateOne({ _id: workerId }, { $set: updatedData });
         const redisClient = await getRedisClient();
         await redisClient.set(`worker:${workerId}`, JSON.stringify(updatedWorker), { EX: REDIS_CACHE_TTL });
-        console.log('Worker updated in MongoDB and Redis:', workerId);
+        logger.info('Worker updated in MongoDB and Redis:', workerId);
         return updatedWorker as Worker;
     } catch (error) {
-        console.error('Error updating worker:', error);
+        logger.error('Error updating worker:', error);
         return null;
     }
 }
+
+export {
+    handleNewWorker,
+    getAllWorkers,
+    getWorkerById,
+    deleteWorker,
+    updateWorker
+};

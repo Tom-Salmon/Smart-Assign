@@ -4,7 +4,14 @@
   "description": "��#\u0000 \u0000M\u0000y\u0000 \u0000N\u0000e\u0000w\u0000 \u0000P\u0000r\u0000o\u0000j\u0000e\u0000c\u0000t\u0000\r\u0000 \u0000",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "ts-node src/index.ts",
+    "dev": "nodemon src/index.ts",
+    "test": "ts-node src/test/systemTest.ts",
+    "system-test": "npm run start-services && timeout /t 5 && ts-node src/test/systemTest.ts",
+    "start-services": "docker-compose up -d",
+    "stop-services": "docker-compose down",
+    "full-start": "npm run start-services && timeout /t 3 && npm start",
+    "clean": "npm run stop-services && docker system prune -f"
   },
   "keywords": [],
   "author": "",

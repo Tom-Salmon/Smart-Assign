@@ -1,4 +1,4 @@
-export interface Task {
+interface Task {
     id: string;
     title: string;
     priority: number;
@@ -12,7 +12,7 @@ export interface Task {
     assignedDate?: Date;
 }
 
-export interface Worker {
+interface Worker {
     id: string;
     name: string;
     skills: string[];
@@ -21,3 +21,5 @@ export interface Worker {
     assignedTasks: string[];
     bio: string;
 }
+
+export { Task, Worker };

@@ -1,25 +1,30 @@
 import mongoose from 'mongoose';
 import { MONGO_URI } from '../config';
+import { logger } from '../services/logger';
 
-export async function connectToMongoDB() {
+// This module provides a MongoDB client for connecting to a MongoDB server.
+// It exports functions to connect to MongoDB, disconnect it, and models for tasks and workers.
+// It uses Mongoose for schema definition and interaction with MongoDB.
+
+async function connectToMongoDB() {
     if (mongoose.connection.readyState) {
-        console.log('Already connected to MongoDB');
+        logger.info('Already connected to MongoDB');
         return;
     }
     try {
         await mongoose.connect(MONGO_URI);
-        console.log('Connected to MongoDB');
+        logger.info('Connected to MongoDB');
     } catch (error) {
-        console.error('MongoDB connection error:', error);
+        logger.error('MongoDB connection error:', error);
     }
 }
 
-export async function disconnectMongo() {
+async function disconnectMongo() {
     try {
         await mongoose.disconnect();
-        console.log('MongoDB disconnected');
+        logger.info('MongoDB disconnected');
     } catch (error) {
-        console.error('Error disconnecting MongoDB:', error);
+        logger.error('Error disconnecting MongoDB:', error);
     }
 }
 
@@ -60,4 +65,10 @@ const workerSchema = new mongoose.Schema(
 const TaskModel = mongoose.model('Task', taskSchema);
 const WorkerModel = mongoose.model('Worker', workerSchema);
 
-export { TaskModel, WorkerModel };
+// Exporting the models and connection functions
+export {
+    TaskModel,
+    WorkerModel,
+    connectToMongoDB,
+    disconnectMongo
+};

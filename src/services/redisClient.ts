@@ -1,6 +1,9 @@
 import { createClient, RedisClientType } from 'redis';
 import { REDIS_URL } from '../config';
+import { logger } from './logger';
 
+// This module provides a Redis client for connecting to a Redis server.
+// It exports functions to get the Redis client and disconnect it when needed.
 
 let redisClient: RedisClientType;
 const getRedisClient = async (): Promise<RedisClientType> => {
@@ -8,9 +11,9 @@ const getRedisClient = async (): Promise<RedisClientType> => {
         redisClient = createClient({
             url: REDIS_URL,
         });
-        redisClient.on('error', (err) => console.error('Redis Client Error', err));
+        redisClient.on('error', (err) => logger.error('Redis Client Error', err));
         await redisClient.connect();
-        console.log('Connected to Redis');
+        logger.info('Connected to Redis');
     }
     return redisClient;
 }
@@ -18,7 +21,7 @@ const getRedisClient = async (): Promise<RedisClientType> => {
 const disconnectRedisClient = async (): Promise<void> => {
     if (redisClient && redisClient.isOpen) {
         await redisClient.quit();
-        console.log('Disconnected from Redis');
+        logger.info('Disconnected from Redis');
     }
 }
 

@@ -1,6 +1,7 @@
 import { producer } from "../services/kafkaClient";
-import { v4 as uuidv4 } from "uuid";
-export async function sendNewTask() {
+import { logger } from "../services/logger";
+
+async function sendNewTask() {
     try {
         const payload = {
             title: "Complete project report",
@@ -10,7 +11,7 @@ export async function sendNewTask() {
             description: "Detailed report on project progress",
             status: "todo",
             load: 5,
-            timeToComplete: 60 * 60 * 2 // 2 hours in seconds
+            timeToComplete: 60 * 60 * 2
         };
         await producer.send({
             topic: "NEW_TASK",
@@ -23,13 +24,13 @@ export async function sendNewTask() {
                 }
             ]
         });
-        console.log("Sent NEW_TASK to Kafka:", payload);
+        logger.info("Sent NEW_TASK to Kafka:", payload);
     } catch (error) {
-        console.error("Error sending new task to Kafka:", error);
+        logger.error("Error sending new task to Kafka:", error);
     }
 }
 
-export async function createNewWorker() {
+async function createNewWorker() {
     try {
         const payload = {
             name: "Alice",
@@ -50,8 +51,10 @@ export async function createNewWorker() {
                 }
             ]
         });
-        console.log("Sent NEW_WORKER to Kafka:", payload);
+        logger.info("Sent NEW_WORKER to Kafka:", payload);
     } catch (error) {
-        console.error("Error sending new worker to Kafka:", error);
+        logger.error("Error sending new worker to Kafka:", error);
     }
 }
+
+export { sendNewTask, createNewWorker };
