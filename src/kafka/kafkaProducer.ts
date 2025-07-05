@@ -1,18 +1,13 @@
 import { producer } from "../services/kafkaClient";
 import { logger } from "../services/logger";
-import { v4 as uuidv4 } from 'uuid';
+import { Task, Worker } from '../types/entities';
 
-async function sendNewTask() {
+async function sendNewTask(taskData: Omit<Task, 'id'>): Promise<void> {
     try {
         const payload = {
-            title: "Complete project report",
-            priority: 1,
-            createdDate: new Date(),
-            requiredSkills: ["writing", "analysis"],
-            description: "Detailed report on project progress",
-            status: "todo", // TypeScript correctly infers literal type for union
-            load: 5,
-            timeToComplete: 60 * 60 * 2
+            ...taskData,
+            createdDate: taskData.createdDate || new Date(),
+            status: taskData.status || "todo" as const
         };
         await producer.send({
             topic: "NEW_TASK",
@@ -28,18 +23,16 @@ async function sendNewTask() {
         logger.info("Sent NEW_TASK to Kafka:", payload);
     } catch (error) {
         logger.error("Error sending new task to Kafka:", error);
+        throw error;
     }
 }
 
-async function createNewWorker() {
+async function createNewWorker(workerData: Omit<Worker, 'id'>): Promise<void> {
     try {
         const payload = {
-            name: "Alice",
-            skills: ["writing", "design"],
-            currentLoad: 0,
-            maxLoad: 10,
-            bio: "Experienced writer and designer",
-            assignedTasks: [],
+            ...workerData,
+            currentLoad: workerData.currentLoad || 0,
+            assignedTasks: workerData.assignedTasks || [],
         };
         await producer.send({
             topic: "NEW_WORKER",
@@ -55,6 +48,7 @@ async function createNewWorker() {
         logger.info("Sent NEW_WORKER to Kafka:", payload);
     } catch (error) {
         logger.error("Error sending new worker to Kafka:", error);
+        throw error;
     }
 }
 
