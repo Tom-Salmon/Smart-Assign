@@ -1,6 +1,7 @@
 import { REDIS_CACHE_TTL } from '../config';
 import { TaskModel } from '../models/mongoClient';
 import { Task, Worker } from '../types/entities';
+import { ValidationError, NotFoundError, BusinessLogicError, DatabaseError } from '../types/errors';
 import { getRedisClient } from './redisClient';
 import { updateWorker, getWorkerById } from './workerHandler';
 import { logger } from './logger';
@@ -8,32 +9,73 @@ import { logger } from './logger';
 //this module handles task management operations such as creating, updating, deleting, and fetching tasks.
 // It interacts with MongoDB for persistent storage and Redis for caching.
 
-async function handleNewTask(taskData: Task): Promise<void> {
-    const redisClient = await getRedisClient();
+async function handleNewTask(taskData: Omit<Task, 'id'>): Promise<void> {
+    if (!taskData.title?.trim()) {
+        throw new ValidationError('Title is required', 'title');
+    }
+    if (!taskData.description?.trim()) {
+        throw new ValidationError('Description is required', 'description');
+    }
+    if (taskData.priority < 1 || taskData.priority > 10) {
+        throw new ValidationError('Priority must be between 1 and 10', 'priority');
+    }
+    if (taskData.load < 1) {
+        throw new ValidationError('Load must be at least 1', 'load');
+    }
+
     try {
-        const newTask = await TaskModel.create({ taskData });
-        await redisClient.set(`task:${newTask._id}`, JSON.stringify({ ...taskData, id: newTask._id.toString() }), { EX: REDIS_CACHE_TTL });
-        logger.info('Task saved to MongoDB and Redis:', newTask._id);
+        const redisClient = await getRedisClient();
+        const newTask = await TaskModel.create(taskData);
+        const taskWithId = {
+            ...taskData,
+            id: newTask._id.toString()
+        } as Task;
+        await redisClient.set(`task:${taskWithId.id}`, JSON.stringify(taskWithId), { EX: REDIS_CACHE_TTL });
+        logger.info('Task saved to MongoDB and Redis:', taskWithId.id);
     } catch (error) {
         logger.error('Error creating new task:', error);
+        throw new DatabaseError('Failed to create task', error as Error);
     }
 }
 
-async function deleteTask(taskId: string) {
+async function deleteTask(taskId: string): Promise<void> {
+    if (!taskId?.trim()) {
+        throw new ValidationError('Task ID is required');
+    }
+
     try {
         const redisClient = await getRedisClient();
         await redisClient.del(`task:${taskId}`);
-        await TaskModel.deleteOne({ _id: taskId });
-        logger.info(`task ID: ${taskId} removed successfully from Redis and MongoDB.`);
+        const result = await TaskModel.findByIdAndDelete(taskId);
+        if (!result) {
+            throw new NotFoundError('Task', taskId);
+        }
+        logger.info(`Task ID: ${taskId} removed successfully from Redis and MongoDB.`);
     } catch (error) {
-        logger.error(`Failed to remove ${taskId}:`, error);
+        if (error instanceof NotFoundError) {
+            throw error;
+        }
+        logger.error(`Failed to remove task ${taskId}:`, error);
+        throw new DatabaseError(`Failed to delete task ${taskId}`, error as Error);
     }
 }
 
 async function getAllTasks(): Promise<Task[]> {
     try {
-        const docs = await TaskModel.find({}).lean();
-        return docs.map((doc: any) => ({ ...doc, id: doc._id.toString() })) as Task[];
+        const tasks = await TaskModel.find({}).lean();
+        return tasks.map((task: any) => ({
+            id: task._id.toString(),
+            title: task.title as string,
+            priority: task.priority as number,
+            createdDate: task.createdDate as Date,
+            timeToComplete: task.timeToComplete as number,
+            requiredSkills: task.requiredSkills as string[],
+            description: task.description as string,
+            status: task.status as 'todo' | 'in-progress' | 'done',
+            load: task.load as number,
+            assignedTo: task.assignedTo?.toString(),
+            assignedDate: task.assignedDate as Date | undefined,
+        }));
     } catch (error) {
         logger.error('Error fetching tasks:', error);
         return [];
@@ -41,29 +83,45 @@ async function getAllTasks(): Promise<Task[]> {
 }
 
 async function getTaskById(taskId: string): Promise<Task | null> {
-    if (!taskId) {
-        logger.error('Invalid task ID:', taskId);
-        return null;
+    if (!taskId?.trim()) {
+        throw new ValidationError('Task ID is required');
     }
+
     try {
         const redisClient = await getRedisClient();
-        const requiredTask = await redisClient.get(`task:${taskId}`);
-        if (requiredTask) {
+        const cachedTask = await redisClient.get(`task:${taskId}`);
+        if (cachedTask) {
             logger.info('Task fetched from Redis:', taskId);
-            return JSON.parse(requiredTask) as Task;
+            return JSON.parse(cachedTask) as Task;
         }
-        else {
-            const task = await TaskModel.findById(taskId).lean();
-            if (task) {
-                await redisClient.set(`task:${taskId}`, JSON.stringify({ ...task, id: task._id.toString() }), { EX: REDIS_CACHE_TTL });
-                logger.info('Task fetched from MongoDB and stored in Redis:', taskId);
-                return { ...task, id: task._id.toString() } as Task;
-            }
+
+        const task = await TaskModel.findById(taskId).lean();
+        if (task) {
+            const formattedTask = {
+                id: task._id.toString(),
+                title: task.title as string,
+                priority: task.priority as number,
+                createdDate: task.createdDate as Date,
+                timeToComplete: task.timeToComplete as number,
+                requiredSkills: task.requiredSkills as string[],
+                description: task.description as string,
+                status: task.status as 'todo' | 'in-progress' | 'done',
+                load: task.load as number,
+                assignedTo: task.assignedTo?.toString(),
+                assignedDate: task.assignedDate as Date | undefined,
+            };
+            await redisClient.set(`task:${taskId}`, JSON.stringify(formattedTask), { EX: REDIS_CACHE_TTL });
+            logger.info('Task fetched from MongoDB and stored in Redis:', taskId);
+            return formattedTask;
         }
+        return null;
     } catch (error) {
+        if (error instanceof ValidationError) {
+            throw error;
+        }
         logger.error('Error fetching task by ID:', error);
+        throw new DatabaseError(`Failed to fetch task ${taskId}`, error as Error);
     }
-    return null;
 }
 
 async function updateTask(taskId: string, updatedData: Partial<Task>): Promise<Task | null> {
@@ -123,46 +181,55 @@ async function finishTask(taskId: string): Promise<void> {
 }
 
 async function assignTaskToWorker(taskId: string, workerId: string): Promise<void> {
-    if (!taskId || !workerId) {
-        logger.error('Invalid task ID or worker ID for assignment:', taskId, workerId);
-        return;
+    if (!taskId?.trim()) {
+        throw new ValidationError('Task ID is required');
     }
+    if (!workerId?.trim()) {
+        throw new ValidationError('Worker ID is required');
+    }
+
     try {
         const task = await getTaskById(taskId);
         if (!task) {
-            logger.warn('Task not found for assignment:', taskId);
-            return;
+            throw new NotFoundError('Task', taskId);
         }
         if (task.status !== 'todo') {
-            logger.warn('Task is not in todo status for assignment:', taskId);
-            return;
+            throw new BusinessLogicError(`Task ${taskId} is not available for assignment (status: ${task.status})`);
         }
+
         const worker = await getWorkerById(workerId);
         if (!worker) {
-            logger.warn('Worker not found for assignment:', workerId);
-            return;
+            throw new NotFoundError('Worker', workerId);
         }
+
         if (worker.currentLoad + task.load > worker.maxLoad) {
-            logger.warn(`${worker.name} load exceeded for assignment "${task.title}"`);
-            throw new Error(`${worker.name} load exceeded for assignment "${task.title}"`);
+            throw new BusinessLogicError(`Worker ${worker.name} load would exceed maximum capacity (${worker.currentLoad + task.load}/${worker.maxLoad})`);
         }
+
         const hasRequiredSkills = task.requiredSkills.every(skill => worker.skills.includes(skill));
         if (!hasRequiredSkills) {
-            logger.warn(`${worker.name} does not have required skills for task ${taskId}`);
-            throw new Error(`${worker.name} does not have required skills for task ${taskId}`);
+            const missingSkills = task.requiredSkills.filter(skill => !worker.skills.includes(skill));
+            throw new BusinessLogicError(`Worker ${worker.name} lacks required skills: ${missingSkills.join(', ')}`);
         }
+
         await updateTask(taskId, {
             assignedTo: worker.id,
             assignedDate: new Date(),
             status: 'in-progress'
         });
+
         await updateWorker(worker.id, {
             currentLoad: worker.currentLoad + task.load,
             assignedTasks: [...worker.assignedTasks, taskId],
         });
-        logger.info('Task assigned to worker:', worker.name);
+
+        logger.info(`Task ${taskId} assigned to worker ${worker.name}`);
     } catch (error) {
+        if (error instanceof ValidationError || error instanceof NotFoundError || error instanceof BusinessLogicError) {
+            throw error;
+        }
         logger.error('Error assigning task to worker:', error);
+        throw new DatabaseError('Failed to assign task to worker', error as Error);
     }
 }
 

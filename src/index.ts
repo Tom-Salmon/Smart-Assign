@@ -3,10 +3,6 @@ import { createNewWorker, sendNewTask } from "./kafka/kafkaProducer";
 import { initTopicRouter } from "./kafka/topicRouter";
 import { connectToMongoDB, disconnectMongo } from "./models/mongoClient";
 import { getRedisClient, disconnectRedisClient } from "./services/redisClient";
-import { handleNewTask, deleteTask, getAllTasks, getTaskById, updateTask, finishTask, assignTaskToWorker, unassignTaskFromWorker } from "./services/taskHandler";
-import { handleNewWorker, deleteWorker, getAllWorkers, getWorkerById, updateWorker } from "./services/workerHandler";
-import { Worker } from "./types/entities";
-import { Task } from "./types/entities";
 import { TaskModel, WorkerModel } from "./models/mongoClient";
 import { logger } from "./services/logger";
 
@@ -19,40 +15,41 @@ async function main() {
         // Initialize MongoDB connection
         await connectToMongoDB();
         logger.info("Connected to MongoDB");
+
         // Initialize Redis client
         await getRedisClient();
         logger.info("Connected to Redis");
+
         // Initialize Kafka producer
         await initKafkaProducer();
         logger.info("Kafka producer initialized");
+
         // Initialize Kafka consumer
         await initKafkaConsumer();
         logger.info("Kafka consumer initialized");
+
         // Initialize topic router
         await initTopicRouter();
         logger.info("Topic router initialized");
+
         await sleep(1000);
+
         // Clear existing data in MongoDB and Redis
         const redisClient = await getRedisClient();
         logger.info("Clearing existing data in MongoDB and Redis...");
         await TaskModel.deleteMany({});
         await WorkerModel.deleteMany({});
         await redisClient.flushDb();
+        logger.info("Data cleared successfully");
 
     } catch (error) {
-        logger.error("Error in main function:", error);
+        logger.error("❌ Error in main function:", error);
+        process.exit(1);
     }
 }
-main().catch(logger.error);
-process.on('SIGINT', shutdown);      // Ctrl+C
-process.on('SIGTERM', shutdown);     // docker stop / system kill
-process.on('uncaughtException', (err) => {
-    logger.error('Uncaught Exception:', err);
-    shutdown();
-});
-process.on('unhandledRejection', (reason) => {
-    logger.error('Unhandled Promise Rejection:', reason);
-    shutdown();
+main().catch((error) => {
+    logger.error("Fatal error starting application:", error);
+    process.exit(1);
 });
 
 async function shutdown() {

@@ -3,13 +3,18 @@ import { deleteTask, getAllTasks, getTaskById, updateTask, finishTask, assignTas
 import { deleteWorker, getAllWorkers, getWorkerById, updateWorker } from "../services/workerHandler";
 import { Worker } from "../types/entities";
 import { Task } from "../types/entities";
+import { ValidationError, NotFoundError, BusinessLogicError, DatabaseError } from "../types/errors";
 import { logger } from "../services/logger";
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
 (async () => {
     try {
+        // Initialize MongoDB connection (needed for standalone testing)
+        await connectToMongoDB();
+        logger.info("Connected to MongoDB for system testing");
 
         // Fetch all workers
         const workers = await getAllWorkers();
@@ -56,6 +61,15 @@ function sleep(ms: number): Promise<void> {
                 logger.info(`Assigned task ${task.id} to worker ${worker.id}`);
                 await sleep(1000);
             } catch (error) {
+                if (error instanceof ValidationError) {
+                    logger.error(`Validation error during assignment: ${error.message}`);
+                } else if (error instanceof BusinessLogicError) {
+                    logger.error(`Business logic error during assignment: ${error.message}`);
+                } else if (error instanceof NotFoundError) {
+                    logger.error(`Resource not found during assignment: ${error.message}`);
+                } else {
+                    logger.error('Unexpected error during assignment:', error);
+                }
             }
 
             // Unassign a task from a worker
@@ -85,6 +99,16 @@ function sleep(ms: number): Promise<void> {
             logger.error("No worker or task available for assignment/unassignment");
         }
     } catch (error) {
-        logger.error("Error in system test:", error);
+        if (error instanceof ValidationError) {
+            logger.error(`Validation error in system test: ${error.message} (field: ${error.field})`);
+        } else if (error instanceof NotFoundError) {
+            logger.error(`Resource not found in system test: ${error.message}`);
+        } else if (error instanceof BusinessLogicError) {
+            logger.error(`Business logic error in system test: ${error.message}`);
+        } else if (error instanceof DatabaseError) {
+            logger.error(`Database error in system test: ${error.message}`);
+        } else {
+            logger.error("Unexpected error in system test:", error);
+        }
     }
 })().catch(logger.error);

@@ -1,5 +1,6 @@
 import { producer } from "../services/kafkaClient";
 import { logger } from "../services/logger";
+import { v4 as uuidv4 } from 'uuid';
 
 async function sendNewTask() {
     try {
@@ -9,7 +10,7 @@ async function sendNewTask() {
             createdDate: new Date(),
             requiredSkills: ["writing", "analysis"],
             description: "Detailed report on project progress",
-            status: "todo",
+            status: "todo", // TypeScript correctly infers literal type for union
             load: 5,
             timeToComplete: 60 * 60 * 2
         };
