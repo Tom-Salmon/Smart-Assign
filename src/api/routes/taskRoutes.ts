@@ -3,6 +3,7 @@ import express from "express";
 import { ValidationError, NotFoundError, BusinessLogicError, DatabaseError } from "../../types/errors";
 import { logger } from '../../services/logger';
 import {
+    handleNewTask,
     deleteTask,
     getAllTasks,
     getTaskById,
@@ -11,8 +12,7 @@ import {
     assignTaskToWorker,
     unassignTaskFromWorker,
 } from "../../services/taskHandler";
-import { sendNewTask } from "../../kafka/kafkaProducer";
-import { validateTask } from "../../types/validation";
+import { sendNewTask, createNewWorker } from "../../kafka/kafkaProducer";
 
 const router = express.Router();
 
@@ -20,7 +20,12 @@ const router = express.Router();
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const tasks = await getAllTasks();
-        res.json(tasks);
+        const response = {
+            count: tasks.length,
+            tasks: tasks,
+            timestamp: new Date().toISOString()
+        };
+        res.json(response);
     } catch (error) {
         next(error);
     }
@@ -31,7 +36,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const task = await getTaskById(req.params.id);
         if (!task) {
-            throw new NotFoundError("Task", req.params.id);
+            throw new NotFoundError("Task not found", req.params.id);
         }
         res.json(task);
     } catch (error) {
@@ -39,20 +44,12 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     }
 });
 
-// POST create a new task via Kafka
+// POST create a new task with kafka and error handling
 router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Validate the input
-        validateTask(req.body);
-
-        // Send to Kafka for async processing
+        // Only send to Kafka - let the event handler create the task
         await sendNewTask(req.body);
-
-        // Return accepted status (202) - processing will happen asynchronously
-        res.status(202).json({
-            message: "Task creation initiated",
-            status: "processing"
-        });
+        res.status(202).json({ message: "Task creation request submitted successfully" });
     } catch (error) {
         next(error);
     }
@@ -61,15 +58,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 // PUT update a task
 router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Validate the input (partial validation for updates)
-        if (Object.keys(req.body).length === 0) {
-            throw new ValidationError("Request body cannot be empty");
-        }
-
         const updatedTask = await updateTask(req.params.id, req.body);
-        if (!updatedTask) {
-            throw new NotFoundError("Task", req.params.id);
-        }
         res.json(updatedTask);
     } catch (error) {
         next(error);
@@ -90,14 +79,19 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
 router.post("/:taskId/assign/:workerId", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { taskId, workerId } = req.params;
-
-        // Validate parameters
-        if (!taskId || !workerId) {
-            throw new ValidationError("Both taskId and workerId are required");
-        }
-
         await assignTaskToWorker(taskId, workerId);
-        res.status(200).json({ message: "Task assigned successfully" });
+        res.sendStatus(204);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST unassign a task from a worker
+router.post("/:taskId/unassign/:workerId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { taskId, workerId } = req.params;
+        await unassignTaskFromWorker(taskId);
+        res.sendStatus(204);
     } catch (error) {
         next(error);
     }
@@ -107,34 +101,41 @@ router.post("/:taskId/assign/:workerId", async (req: Request, res: Response, nex
 router.post("/:taskId/unassign", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { taskId } = req.params;
-
-        // Validate parameters
-        if (!taskId) {
-            throw new ValidationError("TaskId is required");
-        }
-
         await unassignTaskFromWorker(taskId);
-        res.status(200).json({ message: "Task unassigned successfully" });
+        res.sendStatus(204);
     } catch (error) {
         next(error);
     }
 });
+
 
 // POST finish a task
 router.post("/:taskId/finish", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { taskId } = req.params;
-
-        // Validate parameters
-        if (!taskId) {
-            throw new ValidationError("TaskId is required");
-        }
-
         await finishTask(taskId);
-        res.status(200).json({ message: "Task finished successfully" });
+        res.sendStatus(204);
     } catch (error) {
         next(error);
     }
 });
 
-export default router;
+
+
+// Error handling middleware
+router.use((error: any, req: Request, res: Response, next: NextFunction) => {
+    logger.error("Error occurred:", error);
+    if (error instanceof ValidationError) {
+        res.status(400).json({ message: error.message });
+    } else if (error instanceof NotFoundError) {
+        res.status(404).json({ message: error.message });
+    } else if (error instanceof BusinessLogicError) {
+        res.status(409).json({ message: error.message });
+    } else if (error instanceof DatabaseError) {
+        res.status(500).json({ message: "Internal server error" });
+    } else {
+        res.status(500).json({ message: "Unknown error occurred" });
+    }
+});
+// Export the router
+export { router as taskRoutes };

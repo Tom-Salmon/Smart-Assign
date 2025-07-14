@@ -17,7 +17,12 @@ const router = express.Router();
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const workers = await getAllWorkers();
-        res.json(workers);
+        const response = {
+            count: workers.length,
+            workers: workers,
+            timestamp: new Date().toISOString()
+        };
+        res.json(response);
     } catch (error) {
         next(error);
     }
@@ -28,7 +33,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const worker = await getWorkerById(req.params.id);
         if (!worker) {
-            throw new NotFoundError("Worker", req.params.id);
+            throw new NotFoundError("Worker not found", req.params.id);
         }
         res.json(worker);
     } catch (error) {
@@ -41,15 +46,8 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
     try {
         // Validate the input
         validateWorker(req.body);
-
-        // Send to Kafka for async processing
         await createNewWorker(req.body);
-
-        // Return accepted status (202) - processing will happen asynchronously
-        res.status(202).json({
-            message: "Worker creation initiated",
-            status: "processing"
-        });
+        res.status(202).json({ message: "Worker creation request submitted successfully" });
     } catch (error) {
         next(error);
     }
@@ -58,15 +56,7 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
 // PUT update a worker
 router.put("/:id", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Validate the input (partial validation for updates)
-        if (Object.keys(req.body).length === 0) {
-            throw new ValidationError("Request body cannot be empty");
-        }
-
         const updatedWorker = await updateWorker(req.params.id, req.body);
-        if (!updatedWorker) {
-            throw new NotFoundError("Worker", req.params.id);
-        }
         res.json(updatedWorker);
     } catch (error) {
         next(error);
@@ -82,4 +72,23 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
         next(error);
     }
 });
+
+// Error handling middleware
+router.use((error: any, req: Request, res: Response, next: NextFunction) => {
+    logger.error("Error occurred:", error);
+    if (error instanceof ValidationError) {
+        res.status(400).json({ message: error.message });
+    } else if (error instanceof NotFoundError) {
+        res.status(404).json({ message: error.message });
+    } else if (error instanceof BusinessLogicError) {
+        res.status(409).json({ message: error.message });
+    } else if (error instanceof DatabaseError) {
+        res.status(500).json({ message: "Internal server error" });
+    } else {
+        res.status(500).json({ message: "Unknown error occurred" });
+    }
+});
+
+// Export the router
+export { router as workerRoutes };
 export default router;

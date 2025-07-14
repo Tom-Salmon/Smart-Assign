@@ -1,8 +1,8 @@
 import express from 'express';
 import { ValidationError, NotFoundError, BusinessLogicError, DatabaseError } from "../types/errors";
 import { logger } from "../services/logger";
-import taskRoutes from './routes/taskRoutes';
-import workerRoutes from './routes/workerRoutes';
+import { taskRoutes } from './routes/taskRoutes';
+import { workerRoutes } from './routes/workerRoutes';
 import { Request, Response, NextFunction } from 'express';
 
 const app = express();
