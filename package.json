@@ -1,5 +1,5 @@
 {
-  "name": "project1",
+  "name": "smartassign",
   "version": "1.0.0",
   "description": "Event-driven task management system with TypeScript, Kafka, MongoDB, and Redis",
   "main": "index.js",
@@ -17,11 +17,11 @@
     "services:restart": "npm run services:stop && npm run services:start",
     "app:start": "npm run services:start && timeout /t 3 && npm start",
     "clean": "npm run services:stop && docker system prune -f",
-    "lint": "echo 'Add ESLint configuration for linting'",
-    "format": "echo 'Add Prettier configuration for formatting'"
+    "lint": "eslint \"src/**/*.{js,ts}\"",
+    "format": "prettier --write \"src/**/*.{ts,js,json,md}\""
   },
   "keywords": [],
-  "author": "",
+  "author": "Tom Salmon",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
@@ -39,6 +39,7 @@
     "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "prettier": "^3.2.5"
   }
 }
